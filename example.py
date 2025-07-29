@@ -84,7 +84,7 @@ def main():
     print("\nRunning simulation with cube at position 4...")
     print("GUI viewer should now be visible. Use keys 1/2/3 to switch cameras, 'q' to quit.")
     
-    for step in range(20):
+    for step in range(200):
         # Sample random action within joint limits
         action = env.action_space.sample()
         

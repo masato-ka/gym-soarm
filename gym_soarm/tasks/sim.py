@@ -12,6 +12,98 @@ from gym_soarm.constants import (
     is_in_workspace,
 )
 
+
+def forward_kinematics_so_arm_101(joint_angles):
+    """
+    Calculate end-effector position using forward kinematics for SO-ARM101.
+    
+    Args:
+        joint_angles: Array of 6 joint angles [shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper]
+    
+    Returns:
+        numpy.array: 3D position of end-effector (gripperframe site)
+    """
+    # Extract joint angles (first 5 joints affect end-effector position)
+    q1, q2, q3, q4, q5 = joint_angles[:5]  # gripper joint doesn't affect position
+    
+    # SO-ARM101 kinematic parameters from XML analysis
+    # Base frame at robot base (considering 90° rotation: robot at y=0.15, rotated)
+    base_offset = np.array([0, 0.15, 0])  # Robot base position
+    
+    # Link lengths and offsets from XML file analysis
+    # Link 1 (base to shoulder): pos="0.0388353 -8.97657e-09 0.0624"
+    L1_offset = np.array([0.0388353, 0, 0.0624])
+    
+    # Link 2 (shoulder to upper_arm): pos="-0.0303992 -0.0182778 -0.0542"
+    L2_offset = np.array([-0.0303992, -0.0182778, -0.0542])
+    L2_length = 0.11257  # Distance to elbow joint
+    
+    # Link 3 (upper_arm to lower_arm): pos="-0.11257 -0.028 1.73763e-16"
+    L3_offset = np.array([-0.11257, -0.028, 0])
+    L3_length = 0.1349  # Distance to wrist joint
+    
+    # Link 4 (lower_arm to wrist): pos="-0.1349 0.0052 3.62355e-17"
+    L4_offset = np.array([-0.1349, 0.0052, 0])
+    
+    # Link 5 (wrist to gripper): pos="5.55112e-17 -0.0611 0.0181"
+    L5_offset = np.array([0, -0.0611, 0.0181])
+    
+    # End-effector offset (gripperframe site): pos="-0.0079 -0.000218121 -0.0981274"
+    EE_offset = np.array([-0.0079, -0.000218121, -0.0981274])
+    
+    # Create transformation matrices for each joint
+    def rotation_z(angle):
+        """Create rotation matrix around Z-axis"""
+        c, s = np.cos(angle), np.sin(angle)
+        return np.array([[c, -s, 0, 0],
+                        [s,  c, 0, 0],
+                        [0,  0, 1, 0],
+                        [0,  0, 0, 1]])
+    
+    def translation(x, y, z):
+        """Create translation matrix"""
+        return np.array([[1, 0, 0, x],
+                        [0, 1, 0, y],
+                        [0, 0, 1, z],
+                        [0, 0, 0, 1]])
+    
+    def rotation_y(angle):
+        """Create rotation matrix around Y-axis"""
+        c, s = np.cos(angle), np.sin(angle)
+        return np.array([[c,  0, s, 0],
+                        [0,  1, 0, 0],
+                        [-s, 0, c, 0],
+                        [0,  0, 0, 1]])
+    
+    # Base transformation (robot rotated 90° around Z)
+    T_base = rotation_z(np.pi/2) @ translation(base_offset[0], base_offset[1], base_offset[2])
+    
+    # Joint 1: shoulder_pan (Z-axis rotation)
+    T1 = translation(L1_offset[0], L1_offset[1], L1_offset[2]) @ rotation_z(q1)
+    
+    # Joint 2: shoulder_lift (Z-axis rotation, but coordinate frame is rotated)
+    T2 = translation(L2_offset[0], L2_offset[1], L2_offset[2]) @ rotation_z(q2)
+    
+    # Joint 3: elbow_flex (Z-axis rotation)
+    T3 = translation(L3_offset[0], L3_offset[1], L3_offset[2]) @ rotation_z(q3)
+    
+    # Joint 4: wrist_flex (Z-axis rotation)
+    T4 = translation(L4_offset[0], L4_offset[1], L4_offset[2]) @ rotation_z(q4)
+    
+    # Joint 5: wrist_roll (Z-axis rotation)
+    T5 = translation(L5_offset[0], L5_offset[1], L5_offset[2]) @ rotation_z(q5)
+    
+    # End-effector transformation
+    T_ee = translation(EE_offset[0], EE_offset[1], EE_offset[2])
+    
+    # Compose all transformations
+    T_total = T_base @ T1 @ T2 @ T3 @ T4 @ T5 @ T_ee
+    
+    # Extract position from transformation matrix
+    end_effector_pos = T_total[:3, 3]
+    
+    return end_effector_pos
+
 """
 Environment for simulated SO-ARM100 single-arm manipulation, with joint position control
 
@@ -172,7 +264,45 @@ class PickPlaceTask(SoArmTask):
             self.blue_cube_position = [blue_cube_x, blue_cube_y, blue_cube_z]
 
     def get_reward(self, physics):
-        """Calculate reward based on pick and place progress."""
+        """Calculate reward based on Euclidean distance between end-effector and blue cube."""
+        # Method 1: Calculate end-effector position using forward kinematics
+        joint_angles = physics.data.qpos[:6]  # First 6 joints including gripper
+        ee_pos = forward_kinematics_so_arm_101(joint_angles)
+        
+        # Get blue cube position
+        # Blue cube is at qpos[6:13] (first 6 are robot joints, next 7 are blue cube free joint)
+        if physics.data.qpos.shape[0] < 13:
+            print("Warning: blue_cube qpos not available")
+            return 0.0
+            
+        cube_pos = physics.data.qpos[6:9]  # qpos[6:9] are blue cube position (x,y,z)
+        
+        # Calculate Euclidean distance
+        distance = np.linalg.norm(ee_pos - cube_pos)
+        
+        # Optional debug information (commented out for production)
+        # import time
+        # if not hasattr(self, '_last_debug_time'):
+        #     self._last_debug_time = 0
+        # current_time = time.time()
+        # if current_time - self._last_debug_time > 2.0:  # Print every 2 seconds
+        #     print(f"Debug FK - Joint angles: {joint_angles}")
+        #     print(f"Debug FK - EE pos: {ee_pos}, Cube pos: {cube_pos}, Distance: {distance:.4f}")
+        #     self._last_debug_time = current_time
+        
+        # Distance-based reward with cutoff
+        max_distance = 1.0  # Maximum distance for non-zero reward
+        if distance > max_distance:
+            return 0.0
+        
+        # Linear reward: closer distance gives higher reward
+        # At distance=0: reward=1.0, at distance=max_distance: reward=0.0
+        reward = 1.0 - (distance / max_distance)
+        
+        return max(0.0, reward)
+    
+    def is_cube_grasped_and_lifted(self, physics):
+        """Check if the blue cube is grasped by gripper and lifted from table."""
         # Get all contact pairs
         all_contact_pairs = []
         for i_contact in range(physics.data.ncon):
@@ -184,38 +314,30 @@ class PickPlaceTask(SoArmTask):
                 contact_pair = (name_geom_1, name_geom_2)
                 all_contact_pairs.append(contact_pair)
 
-        # Check if gripper is touching the cube
+        # Check if gripper is touching the blue cube
         gripper_touching_cube = any(
-            ("red_cube" in pair[0] and "gripper" in pair[1]) or 
-            ("red_cube" in pair[1] and "gripper" in pair[0])
+            ("blue_cube" in pair[0] and "gripper" in pair[1]) or 
+            ("blue_cube" in pair[1] and "gripper" in pair[0])
             for pair in all_contact_pairs
         )
         
-        # Check if cube is on table
+        # Check if cube is NOT on table (lifted)
         cube_on_table = any(
-            ("red_cube" in pair[0] and "table" in pair[1]) or 
-            ("red_cube" in pair[1] and "table" in pair[0])
+            ("blue_cube" in pair[0] and "table" in pair[1]) or 
+            ("blue_cube" in pair[1] and "table" in pair[0])
             for pair in all_contact_pairs
         )
         
-        reward = 0.0
+        # Check if gripper is closed (grasping)
+        gripper_qpos = physics.data.qpos[5]  # 6th joint is gripper
+        gripper_closed_threshold = 0.0  # Threshold for considering gripper as closed
+        gripper_is_closed = gripper_qpos < gripper_closed_threshold
         
-        # Reward progression: touch -> pick -> place
-        if gripper_touching_cube:
-            reward = 0.3
-            if not cube_on_table:  # Cube lifted
-                reward = 0.6
-                self.object_picked = True
-                
-                # Check if cube is near target position
-                if "red_cube" in physics.named.data.qpos:
-                    cube_pos = physics.named.data.qpos["red_cube"][:3]
-                    distance_to_target = np.linalg.norm(cube_pos[:2] - np.array(self.target_position[:2]))
-                    
-                    if distance_to_target < 0.05:  # Close to target
-                        reward = 1.0  # Task completed
-        
-        return reward
+        # Cube is grasped and lifted if:
+        # 1. Gripper is touching the cube
+        # 2. Cube is not on table (lifted)
+        # 3. Gripper is closed
+        return gripper_touching_cube and not cube_on_table and gripper_is_closed
 
 
 class StackingTask(SoArmTask):

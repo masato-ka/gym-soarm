@@ -288,8 +288,12 @@ class SoArmAlohaEnv(gym.Env):
         
         _, reward, _, raw_obs = self._env.step(clipped_action)
 
-        # Task completion is indicated by reward == 1.0
-        terminated = is_success = (reward >= 1.0)
+        # Check if cube is grasped and lifted for termination condition
+        terminated = False
+        if hasattr(self._env.task, 'is_cube_grasped_and_lifted'):
+            terminated = self._env.task.is_cube_grasped_and_lifted(self._env.physics)
+        
+        is_success = terminated
 
         info = {"is_success": is_success}
         observation = self._format_raw_obs(raw_obs)
