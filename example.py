@@ -6,6 +6,40 @@ Example script demonstrating SO-ARM100 single-arm manipulation environment
 import numpy as np
 import gymnasium as gym
 import gym_soarm
+import cv2
+import os
+from datetime import datetime
+
+
+def save_frames_to_mp4(frames_dict, output_dir="videos", fps=30):
+    """Save frames dictionary to MP4 videos for each camera"""
+    os.makedirs(output_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    video_writers = {}
+    
+    for camera_name, frames in frames_dict.items():
+        if len(frames) == 0:
+            continue
+            
+        # Define output path
+        output_path = os.path.join(output_dir, f"{camera_name}_{timestamp}.mp4")
+        
+        # Get frame dimensions
+        height, width = frames[0].shape[:2]
+        
+        # Create VideoWriter
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        video_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        
+        # Write frames
+        for frame in frames:
+            # Convert RGB to BGR for OpenCV
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            video_writer.write(frame_bgr)
+        
+        video_writer.release()
+        print(f"Saved {len(frames)} frames to {output_path}")
 
 
 def main():
@@ -17,6 +51,9 @@ def main():
     
     print(f"Action space: {env.action_space}")
     print(f"Observation space: {env.observation_space}")
+    
+    # Initialize frames storage for video recording
+    frames_storage = {}
     
     # Test grid position functionality
     print("\n=== Testing Grid Position Control ===")
@@ -34,6 +71,11 @@ def main():
         print(f"Initial joint positions: {observation['agent_pos']}")
     if "pixels" in observation:
         print(f"Available camera views: {list(observation['pixels'].keys())}")
+        # Initialize frames storage for each camera
+        for camera_name in observation['pixels'].keys():
+            frames_storage[camera_name] = []
+            # Store first frame
+            frames_storage[camera_name].append(observation['pixels'][camera_name].copy())
     
     # Initial render to show GUI viewer
     env.render()
@@ -49,6 +91,11 @@ def main():
         # Step environment
         observation, reward, terminated, truncated, info = env.step(action)
         
+        # Store frames from observation
+        if "pixels" in observation:
+            for camera_name, frame in observation['pixels'].items():
+                frames_storage[camera_name].append(frame.copy())
+        
         # Render after each step to update GUI
         env.render()
         
@@ -62,6 +109,12 @@ def main():
     print(f"\n=== Testing Random Position ===")
     print("Resetting environment with random cube position...")
     observation, info = env.reset(seed=None, options={'cube_grid_position': None})
+    
+    # Store additional frames from random position test
+    if "pixels" in observation:
+        for camera_name, frame in observation['pixels'].items():
+            frames_storage[camera_name].append(frame.copy())
+    
     env.render()
     
     # Test different specific positions
@@ -69,15 +122,36 @@ def main():
     for test_position in [0, 2, 6, 8]:  # Test corner positions
         print(f"\nTesting position {test_position}...")
         observation, info = env.reset(seed=42, options={'cube_grid_position': test_position})
+        
+        # Store frames from different positions
+        if "pixels" in observation:
+            for camera_name, frame in observation['pixels'].items():
+                frames_storage[camera_name].append(frame.copy())
+        
         env.render()
         
         # Give some time to observe the position
         for _ in range(5):
             action = env.action_space.sample() * 0.1  # Small movements
             observation, reward, terminated, truncated, info = env.step(action)
+            
+            # Store frames from movements
+            if "pixels" in observation:
+                for camera_name, frame in observation['pixels'].items():
+                    frames_storage[camera_name].append(frame.copy())
+            
             env.render()
     
     env.close()
+    
+    # Save all recorded frames to MP4 videos
+    print(f"\n=== Saving Videos ===")
+    if frames_storage:
+        save_frames_to_mp4(frames_storage)
+        print(f"Video files saved for cameras: {list(frames_storage.keys())}")
+    else:
+        print("No frames were recorded!")
+    
     print("Example completed successfully!")
 
 
