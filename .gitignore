@@ -86,13 +86,96 @@ logs/
 # MuJoCo/Physics simulation cache
 .mujoco/
 
-# Rendering outputs (if any)
+# Rendering outputs and videos
 renders/
+videos/
+screenshots/
 *.mp4
 *.avi
+*.mov
 *.gif
+*.png
+*.jpg
+*.jpeg
 
 # Development/testing artifacts
 test_output/
 debug_*
 *.prof
+experiments/
+results/
+checkpoints/
+models/
+wandb/
+.neptune/
+
+# Personal development files
+notes.md
+notes/
+TODO.txt
+scratch/
+playground/
+test_personal.py
+*_personal.*
+
+# Data files (large datasets)
+data/
+datasets/
+*.hdf5
+*.h5
+*.parquet
+large_data/
+
+# Configuration and secrets
+.secrets
+*.key
+*.pem
+credentials.json
+config/local.yaml
+config/local.yml
+
+# Additional Python/ML tools
+.tox/
+.nox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Jupyter additional
+*.ipynb_checkpoints
+.jupyter/
+
+# Additional build/package files
+*.whl
+MANIFEST.in.bak
+
+# Additional temporary files
+*.swp~
+*.swo~
+.tmp/
+temp/
+tmp_*
+
+# Additional logging
+debug_output/
+error_logs/
+*.log.*
+
+# Repository setup and verification files
+setup_github.sh
+GITHUB_SETUP.md
+check_obs.py
+check_*.py
+test_camera_features.py
+*_setup.py
+*_setup.sh
+*_test.py
+verification_*
+setup_*
+
+# Note: tests/ directory and pytest.ini are kept for project testing
+# Only exclude standalone test files outside tests/ directory
