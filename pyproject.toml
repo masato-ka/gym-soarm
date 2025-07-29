@@ -3,7 +3,7 @@ name = "gym-soarm"
 version = "0.1.0"
 description = "A gymnasium environment for SO-ARM100 single-arm manipulation based on gym-aloha"
 authors = [
-    "SO-ARM Development Team <your.email@example.com>",
+    "Masato Kawamura (masato-ka) <jp6uzv@gmail.com>",
 ]
 readme = "README.md"
 license = "Apache-2.0"

@@ -8,8 +8,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="gym-soarm",
     version="0.1.0",
-    author="SO-ARM Development Team",
-    author_email="your.email@example.com",
+    author="Masato Kawamura (masato-ka)",
+    author_email="jp6uzv@gmail.com",
     description="A gymnasium environment for SO-ARM101 single-arm manipulation based on gym-aloha",
     long_description=long_description,
     long_description_content_type="text/markdown",
