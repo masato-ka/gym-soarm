@@ -28,6 +28,7 @@ class SoArmAlohaEnv(gym.Env):
         observation_height=480,
         visualization_width=640,
         visualization_height=480,
+        camera_config="front_wrist",  # "front_only", "front_wrist", "all"
     ):
         super().__init__()
         self.task = task
@@ -37,6 +38,15 @@ class SoArmAlohaEnv(gym.Env):
         self.observation_height = observation_height
         self.visualization_width = visualization_width
         self.visualization_height = visualization_height
+        self.camera_config = camera_config
+        
+        # Validate camera configuration
+        valid_configs = ["front_only", "front_wrist", "all"]
+        if camera_config not in valid_configs:
+            raise ValueError(f"camera_config must be one of {valid_configs}, got {camera_config}")
+        
+        # Define which cameras to include based on configuration
+        self._camera_names = self._get_camera_names(camera_config)
 
         self._env = self._make_env_task(self.task)
         self._viewer = None
@@ -54,53 +64,30 @@ class SoArmAlohaEnv(gym.Env):
                 dtype=np.float64,
             )
         elif self.obs_type == "pixels":
-            self.observation_space = spaces.Dict(
-                {
-                    "front_camera": spaces.Box(
-                        low=0,
-                        high=255,
-                        shape=(self.observation_height, self.observation_width, 3),
-                        dtype=np.uint8,
-                    ),
-                    "wrist_camera": spaces.Box(
-                        low=0,
-                        high=255,
-                        shape=(self.observation_height, self.observation_width, 3),
-                        dtype=np.uint8,
-                    ),
-                    "overview_camera": spaces.Box(
-                        low=0,
-                        high=255,
-                        shape=(self.observation_height, self.observation_width, 3),
-                        dtype=np.uint8,
-                    )
-                }
-            )
+            # Create observation space based on camera configuration
+            camera_spaces = {}
+            for camera_name in self._camera_names:
+                camera_spaces[camera_name] = spaces.Box(
+                    low=0,
+                    high=255,
+                    shape=(self.observation_height, self.observation_width, 3),
+                    dtype=np.uint8,
+                )
+            self.observation_space = spaces.Dict(camera_spaces)
         elif self.obs_type == "pixels_agent_pos":
+            # Create camera observation space based on configuration
+            camera_spaces = {}
+            for camera_name in self._camera_names:
+                camera_spaces[camera_name] = spaces.Box(
+                    low=0,
+                    high=255,
+                    shape=(self.observation_height, self.observation_width, 3),
+                    dtype=np.uint8,
+                )
+            
             self.observation_space = spaces.Dict(
                 {
-                    "pixels": spaces.Dict(
-                        {
-                            "front_camera": spaces.Box(
-                                low=0,
-                                high=255,
-                                shape=(self.observation_height, self.observation_width, 3),
-                                dtype=np.uint8,
-                            ),
-                            "wrist_camera": spaces.Box(
-                                low=0,
-                                high=255,
-                                shape=(self.observation_height, self.observation_width, 3),
-                                dtype=np.uint8,
-                            ),
-                            "overview_camera": spaces.Box(
-                                low=0,
-                                high=255,
-                                shape=(self.observation_height, self.observation_width, 3),
-                                dtype=np.uint8,
-                            )
-                        }
-                    ),
+                    "pixels": spaces.Dict(camera_spaces),
                     "agent_pos": spaces.Box(
                         low=-np.inf,
                         high=np.inf,
@@ -118,6 +105,17 @@ class SoArmAlohaEnv(gym.Env):
             shape=(len(ACTIONS),), 
             dtype=np.float32
         )
+
+    def _get_camera_names(self, camera_config):
+        """Get list of camera names based on configuration."""
+        if camera_config == "front_only":
+            return ["front_camera"]
+        elif camera_config == "front_wrist":
+            return ["front_camera", "wrist_camera"]
+        elif camera_config == "all":
+            return ["overview_camera", "front_camera", "wrist_camera"]
+        else:
+            raise ValueError(f"Unknown camera_config: {camera_config}")
 
     def render(self):
         if self.render_mode == "rgb_array":
@@ -240,19 +238,19 @@ class SoArmAlohaEnv(gym.Env):
             obs = np.concatenate([qpos, qvel, ee_pos, ee_quat])
             
         elif self.obs_type == "pixels":
-            obs = {
-                "front_camera": raw_obs["images"]["front_camera"].copy(),
-                "wrist_camera": raw_obs["images"]["wrist_camera"].copy(),
-                "overview_camera": raw_obs["images"]["overview_camera"].copy()
-            }
+            # Only include cameras specified in configuration
+            obs = {}
+            for camera_name in self._camera_names:
+                obs[camera_name] = raw_obs["images"][camera_name].copy()
             
         elif self.obs_type == "pixels_agent_pos":
+            # Only include cameras specified in configuration
+            camera_obs = {}
+            for camera_name in self._camera_names:
+                camera_obs[camera_name] = raw_obs["images"][camera_name].copy()
+            
             obs = {
-                "pixels": {
-                    "front_camera": raw_obs["images"]["front_camera"].copy(),
-                    "wrist_camera": raw_obs["images"]["wrist_camera"].copy(),
-                    "overview_camera": raw_obs["images"]["overview_camera"].copy()
-                },
+                "pixels": camera_obs,
                 "agent_pos": raw_obs["qpos"],
             }
         return obs

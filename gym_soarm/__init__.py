@@ -29,7 +29,8 @@ register(
     kwargs={
         'task': 'pick_place',
         'obs_type': 'pixels_agent_pos',
-        'render_mode': 'rgb_array'
+        'render_mode': 'rgb_array',
+        'camera_config': 'front_wrist'
     }
 )
 

@@ -44,11 +44,11 @@ pip install gym-soarm
 import gymnasium as gym
 import gym_soarm
 
-# Create environment with human rendering
-env = gym.make('SoArm-v0', render_mode='human')
+# Create environment with human rendering and camera configuration
+env = gym.make('SoArm-v0', render_mode='human', camera_config='front_wrist')
 
-# Reset environment
-obs, info = env.reset()
+# Reset environment with specific cube position
+obs, info = env.reset(options={'cube_grid_position': 4})
 
 # Run simulation
 for _ in range(200):
@@ -86,6 +86,53 @@ obs, info = env.reset(options={'cube_grid_position': None})
 ```
 
 The cube will be placed at the specified grid position with a random rotation (0°, 30°, 45°, or 60°).
+
+### Camera Configuration
+
+You can configure which cameras are included in observations to optimize performance and focus on relevant viewpoints:
+
+```python
+import gymnasium as gym
+import gym_soarm
+
+# Front camera only (minimal, fastest)
+env = gym.make('SoArm-v0', obs_type='pixels', camera_config='front_only')
+
+# Front and wrist cameras (default, balanced)
+env = gym.make('SoArm-v0', obs_type='pixels', camera_config='front_wrist')
+
+# All cameras (comprehensive, slower)
+env = gym.make('SoArm-v0', obs_type='pixels', camera_config='all')
+
+obs, info = env.reset()
+print(f"Available cameras: {list(obs.keys())}")
+```
+
+**Camera Configuration Options:**
+- `front_only`: Only front camera (side view) - fastest, minimal observations
+- `front_wrist`: Front camera + wrist camera (first-person view) - balanced performance
+- `all`: All three cameras (overview + front + wrist) - comprehensive but slower
+
+**Observation Structure by Configuration:**
+```python
+# front_only
+obs = {
+    'front_camera': np.ndarray(shape=(480, 640, 3))
+}
+
+# front_wrist  
+obs = {
+    'front_camera': np.ndarray(shape=(480, 640, 3)),
+    'wrist_camera': np.ndarray(shape=(480, 640, 3))
+}
+
+# all
+obs = {
+    'overview_camera': np.ndarray(shape=(480, 640, 3)),
+    'front_camera': np.ndarray(shape=(480, 640, 3)),
+    'wrist_camera': np.ndarray(shape=(480, 640, 3))
+}
+```
 
 ### Camera Switching
 
@@ -165,8 +212,18 @@ gym-soarm/
 # Install test dependencies
 pip install -e ".[test]"
 
+# Run comprehensive test suite
+pytest tests/ -v
+
+# Run specific test categories
+pytest tests/test_e2e.py -v              # End-to-end tests
+pytest tests/test_camera_config.py -v    # Camera configuration tests
+
 # Run basic functionality test
 python example.py
+
+# Test camera configuration features
+python test_camera_features.py
 ```
 
 ### Code Style

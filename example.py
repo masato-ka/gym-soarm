@@ -12,7 +12,8 @@ def main():
     print("Creating SO-ARM101 single-arm manipulation environment...")
     
     # Create environment using gym.make with pixels_agent_pos for both visual and state info
-    env = gym.make('SoArm-v0', render_mode='human', obs_type='pixels_agent_pos')
+    # camera_config options: 'front_only', 'front_wrist', 'all'
+    env = gym.make('SoArm-v0', render_mode='human', obs_type='pixels_agent_pos', camera_config='front_wrist')
     
     print(f"Action space: {env.action_space}")
     print(f"Observation space: {env.observation_space}")
