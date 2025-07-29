@@ -1,0 +1,110 @@
+<mujocoinclude>
+    <compiler angle="radian" inertiafromgeom="auto" inertiagrouprange="4 5"/>
+
+    <asset>
+        <!-- SO-ARM100 Materials -->
+        <material name="so_arm_base" rgba="0.2 0.2 0.2 1.0"/>
+        <material name="so_arm_link" rgba="0.8 0.6 0.2 1.0"/>
+        <material name="so_arm_gripper" rgba="0.6 0.6 0.6 1.0"/>
+        <material name="so_arm_joint" rgba="0.4 0.4 0.4 1.0"/>
+    </asset>
+
+    <worldbody>
+        <!-- SO-ARM100 Base -->
+        <body name="so_arm_base" pos="0 0.4 0.1">
+            <inertial pos="0 0 0.05" mass="2.0" diaginertia="0.01 0.01 0.01"/>
+            <geom name="base_geom" type="cylinder" size="0.08 0.05" material="so_arm_base" 
+                  contype="1" conaffinity="1"/>
+            
+            <!-- Shoulder Pan Joint -->
+            <joint name="shoulder_pan" type="hinge" axis="0 0 1" 
+                   range="-1.92 1.92" damping="1.0" frictionloss="0.1"/>
+            
+            <!-- Link 1: Shoulder -->
+            <body name="shoulder_link" pos="0 0 0.1">
+                <inertial pos="0 0 0.08" mass="1.5" diaginertia="0.008 0.008 0.005"/>
+                <geom name="shoulder_geom" type="box" size="0.06 0.06 0.08" 
+                      material="so_arm_link" contype="1" conaffinity="1"/>
+                
+                <!-- Shoulder Lift Joint -->
+                <joint name="shoulder_lift" type="hinge" axis="0 1 0" 
+                       range="-1.75 1.75" damping="1.0" frictionloss="0.1"/>
+                
+                <!-- Link 2: Upper Arm -->
+                <body name="upper_arm_link" pos="0 0 0.08" quat="1 0 0 0">
+                    <inertial pos="0 0 0.1" mass="1.2" diaginertia="0.01 0.01 0.003"/>
+                    <geom name="upper_arm_geom" type="capsule" size="0.03 0.1" 
+                          material="so_arm_link" contype="1" conaffinity="1"/>
+                    
+                    <!-- Elbow Flex Joint -->
+                    <joint name="elbow_flex" type="hinge" axis="0 1 0" 
+                           range="-1.69 1.69" damping="0.8" frictionloss="0.08"/>
+                    
+                    <!-- Link 3: Forearm -->
+                    <body name="forearm_link" pos="0 0 0.2">
+                        <inertial pos="0 0 0.08" mass="0.8" diaginertia="0.005 0.005 0.002"/>
+                        <geom name="forearm_geom" type="capsule" size="0.025 0.08" 
+                              material="so_arm_link" contype="1" conaffinity="1"/>
+                        
+                        <!-- Wrist Flex Joint -->
+                        <joint name="wrist_flex" type="hinge" axis="0 1 0" 
+                               range="-1.66 1.66" damping="0.5" frictionloss="0.05"/>
+                        
+                        <!-- Link 4: Wrist -->
+                        <body name="wrist_link" pos="0 0 0.16">
+                            <inertial pos="0 0 0.03" mass="0.4" diaginertia="0.002 0.002 0.001"/>
+                            <geom name="wrist_geom" type="cylinder" size="0.02 0.03" 
+                                  material="so_arm_joint" contype="1" conaffinity="1"/>
+                            
+                            <!-- Wrist Roll Joint -->
+                            <joint name="wrist_roll" type="hinge" axis="0 0 1" 
+                                   range="-2.74 2.84" damping="0.3" frictionloss="0.03"/>
+                            
+                            <!-- Gripper Base -->
+                            <body name="gripper_base" pos="0 0 0.06">
+                                <inertial pos="0 0 0.02" mass="0.3" diaginertia="0.001 0.001 0.001"/>
+                                <geom name="gripper_base_geom" type="box" size="0.03 0.02 0.02" 
+                                      material="so_arm_gripper" contype="1" conaffinity="1"/>
+                                
+                                <!-- Gripper Joint (simplified as single DOF) -->
+                                <joint name="gripper" type="slide" axis="1 0 0" 
+                                       range="-0.17 1.75" damping="0.2" frictionloss="0.02"/>
+                                
+                                <!-- Left Gripper Finger -->
+                                <body name="left_gripper_finger">
+                                    <inertial pos="0.02 0 0" mass="0.05" diaginertia="0.0001 0.0001 0.0001"/>
+                                    <geom name="left_finger_geom" type="box" size="0.02 0.005 0.03" 
+                                          pos="0.02 0 0" material="so_arm_gripper" 
+                                          contype="1" conaffinity="1"/>
+                                </body>
+                                
+                                <!-- Right Gripper Finger -->
+                                <body name="right_gripper_finger">
+                                    <inertial pos="-0.02 0 0" mass="0.05" diaginertia="0.0001 0.0001 0.0001"/>
+                                    <geom name="right_finger_geom" type="box" size="0.02 0.005 0.03" 
+                                          pos="-0.02 0 0" material="so_arm_gripper" 
+                                          contype="1" conaffinity="1"/>
+                                </body>
+                                
+                                <!-- End Effector Site -->
+                                <site name="gripper_site" pos="0 0 0.03" size="0.01" 
+                                      type="sphere" rgba="1 0 0 0.3"/>
+                            </body>
+                        </body>
+                    </body>
+                </body>
+            </body>
+        </body>
+    </worldbody>
+
+    <!-- Actuators for SO-ARM100 -->
+    <actuator>
+        <motor name="shoulder_pan_motor" joint="shoulder_pan" ctrlrange="-1.92 1.92" gear="100"/>
+        <motor name="shoulder_lift_motor" joint="shoulder_lift" ctrlrange="-1.75 1.75" gear="100"/>
+        <motor name="elbow_flex_motor" joint="elbow_flex" ctrlrange="-1.69 1.69" gear="100"/>
+        <motor name="wrist_flex_motor" joint="wrist_flex" ctrlrange="-1.66 1.66" gear="50"/>
+        <motor name="wrist_roll_motor" joint="wrist_roll" ctrlrange="-2.74 2.84" gear="50"/>
+        <motor name="gripper_motor" joint="gripper" ctrlrange="-0.17 1.75" gear="20"/>
+    </actuator>
+
+</mujocoinclude>

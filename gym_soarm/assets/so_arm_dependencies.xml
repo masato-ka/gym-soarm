@@ -1,0 +1,17 @@
+<mujocoinclude>
+    <compiler angle="radian" inertiafromgeom="auto" inertiagrouprange="4 5"/>
+    
+    <asset>
+        <!-- SO-ARM100 Materials -->
+        <material name="so_arm_base" rgba="0.2 0.2 0.2 1.0"/>
+        <material name="so_arm_link" rgba="0.8 0.6 0.2 1.0"/>
+        <material name="so_arm_gripper" rgba="0.6 0.6 0.6 1.0"/>
+        
+        <!-- Simplified geometric shapes for SO-ARM100 -->
+        <!-- Note: In production, these would be replaced with actual STL meshes -->
+        
+        <!-- Visual geometries using primitive shapes -->
+        <!-- These can be replaced with mesh files when available -->
+    </asset>
+
+</mujocoinclude>

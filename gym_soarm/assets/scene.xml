@@ -1,0 +1,64 @@
+<mujocoinclude>
+    <option timestep='0.002' iterations="50" tolerance="1e-10" solver="Newton" jacobian="dense" cone="elliptic"/>
+
+    <asset>
+        <mesh file="tabletop.stl" name="tabletop" scale="0.001 0.001 0.001"/>
+        <material name="table_material" reflectance="0" rgba="0.2 0.2 0.2 1"/>
+        <material name="target_material" reflectance="0" rgba="0.8 0.2 0.2 0.7"/>
+        <material name="object_material" reflectance="0" rgba="0.2 0.8 0.2 1"/>
+    </asset>
+
+    <visual>
+        <map fogstart="1.5" fogend="5" force="0.1" znear="0.1"/>
+        <quality shadowsize="4096" offsamples="4"/>
+        <headlight ambient="0.4 0.4 0.4"/>
+    </visual>
+
+    <worldbody>
+        <!-- Lighting setup -->
+        <light castshadow="false" directional='true' diffuse='.3 .3 .3' specular='0.3 0.3 0.3' pos='-1 -1 1'
+               dir='1 1 -1'/>
+        <light directional='true' diffuse='.3 .3 .3' specular='0.3 0.3 0.3' pos='1 -1 1' dir='-1 1 -1'/>
+        <light castshadow="false" directional='true' diffuse='.3 .3 .3' specular='0.3 0.3 0.3' pos='0 1 1'
+               dir='0 -1 -1'/>
+
+        <!-- Table -->
+        <body name="table" pos="0 0.4 0">
+            <geom group="1" mesh="tabletop" pos="0 0 0" type="mesh" conaffinity="1" contype="1" 
+                  name="table" material="table_material" />
+        </body>
+
+        <!-- Reference point for camera targeting -->
+        <body name="workspace_center" pos="0 0.4 0.2">
+            <site pos="0 0 0" size="0.01" type="sphere" name="workspace_center" rgba="1 0 0 0"/>
+        </body>
+
+        <!-- Objects for manipulation tasks -->
+        <body name="red_cube" pos="0.2 0.4 0.05">
+            <inertial pos="0 0 0" mass="0.1" diaginertia="0.001 0.001 0.001"/>
+            <joint name="red_cube" type="free"/>
+            <geom name="red_cube" type="box" size="0.025 0.025 0.025" 
+                  contype="1" conaffinity="1" material="object_material"/>
+        </body>
+        
+        <body name="blue_cube" pos="0.3 0.4 0.05">
+            <inertial pos="0 0 0" mass="0.1" diaginertia="0.001 0.001 0.001"/>
+            <joint name="blue_cube" type="free"/>
+            <geom name="blue_cube" type="box" size="0.025 0.025 0.025" 
+                  contype="1" conaffinity="1" rgba="0.2 0.2 0.8 1"/>
+        </body>
+        
+        <!-- Target marker for pick and place -->
+        <body name="target_marker" pos="0.35 0.5 0.01">
+            <geom name="target_marker" type="cylinder" size="0.03 0.005" 
+                  contype="0" conaffinity="0" material="target_material"/>
+        </body>
+
+        <!-- Camera setup optimized for single arm -->
+        <camera name="main_camera" pos="0.5 0.8 0.8" fovy="45" mode="targetbody" target="workspace_center"/>
+        <camera name="top_camera" pos="0 0.4 1.0" fovy="60" mode="targetbody" target="workspace_center"/>
+        <camera name="side_camera" pos="0.6 0.4 0.4" fovy="50" mode="targetbody" target="workspace_center"/>
+        <camera name="front_camera" pos="0 0.8 0.4" fovy="50" mode="targetbody" target="workspace_center"/>
+    </worldbody>
+
+</mujocoinclude>

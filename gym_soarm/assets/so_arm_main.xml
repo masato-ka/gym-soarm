@@ -1,0 +1,39 @@
+<mujoco model="so_arm_main">
+    <!-- Include dependencies and scene setup -->
+    <include file="so_arm_dependencies.xml"/>
+    <include file="scene.xml"/>
+    
+    <!-- Include SO-ARM100 robot model -->
+    <include file="so_arm.xml"/>
+    
+    <!-- Default class for contacts -->
+    <default>
+        <geom friction="1 0.05 0.01" solimp="0.9 0.95 0.001" solref="0.02 1"/>
+        <joint armature="0.1" damping="0.1"/>
+        <motor ctrlrange="-1 1"/>
+    </default>
+    
+    <!-- Sensors for proprioception -->
+    <sensor>
+        <!-- Joint position sensors -->
+        <jointpos name="shoulder_pan_pos" joint="shoulder_pan"/>
+        <jointpos name="shoulder_lift_pos" joint="shoulder_lift"/>
+        <jointpos name="elbow_flex_pos" joint="elbow_flex"/>
+        <jointpos name="wrist_flex_pos" joint="wrist_flex"/>
+        <jointpos name="wrist_roll_pos" joint="wrist_roll"/>
+        <jointpos name="gripper_pos" joint="gripper"/>
+        
+        <!-- Joint velocity sensors -->
+        <jointvel name="shoulder_pan_vel" joint="shoulder_pan"/>
+        <jointvel name="shoulder_lift_vel" joint="shoulder_lift"/>
+        <jointvel name="elbow_flex_vel" joint="elbow_flex"/>
+        <jointvel name="wrist_flex_vel" joint="wrist_flex"/>
+        <jointvel name="wrist_roll_vel" joint="wrist_roll"/>
+        <jointvel name="gripper_vel" joint="gripper"/>
+        
+        <!-- End effector position and orientation -->
+        <framepos name="gripper_pos_sensor" objtype="site" objname="gripper_site"/>
+        <framequat name="gripper_quat_sensor" objtype="site" objname="gripper_site"/>
+    </sensor>
+    
+</mujoco>
