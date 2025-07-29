@@ -2,6 +2,8 @@
 
 A gymnasium environment for SO-ARM101 single-arm manipulation based on gym-aloha, featuring multi-camera support and advanced simulation capabilities.
 
+![demo](media/gym-soarm.gif)
+
 ## Features
 
 - **SO-ARM101 6DOF Robotic Arm**: Complete simulation of the SO-ARM101 robotic manipulator with white color scheme
