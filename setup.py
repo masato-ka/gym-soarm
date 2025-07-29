@@ -32,7 +32,6 @@ setup(
         "gymnasium>=0.29.1",
         "dm-control>=1.0.14",
         "imageio[ffmpeg]>=2.34.0",
-        "numpy>=1.24.0",
         "opencv-python>=4.0.0",
     ],
     extras_require={
