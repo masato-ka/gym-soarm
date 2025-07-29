@@ -4,13 +4,15 @@ A gymnasium environment for SO-ARM101 single-arm manipulation based on gym-aloha
 
 ## Features
 
-- **SO-ARM101 6DOF Robotic Arm**: Complete simulation of the SO-ARM101 robotic manipulator
+- **SO-ARM101 6DOF Robotic Arm**: Complete simulation of the SO-ARM101 robotic manipulator with white color scheme
 - **Multi-Camera System**: Three camera views with runtime switching:
   - Overview camera: Top-down perspective
   - Front camera: Side view of the workspace
   - Wrist camera: First-person view from the robot's gripper
 - **Interactive GUI Viewer**: OpenCV-based viewer with keyboard controls
 - **Grid-Based Object Placement**: 3×3 grid system for randomized object positioning
+- **MP4 Video Recording**: Automatic recording of camera observations to timestamped MP4 files
+- **6DOF Joint Control**: Direct control of all 6 joints including gripper via action space
 - **Gymnasium Compatible**: Full OpenAI Gym/Gymnasium interface compliance
 - **MuJoCo Physics**: High-fidelity physics simulation using dm-control
 
@@ -45,14 +47,19 @@ import gymnasium as gym
 import gym_soarm
 
 # Create environment with human rendering and camera configuration
-env = gym.make('SoArm-v0', render_mode='human', camera_config='front_wrist')
+env = gym.make('SoArm-v0', render_mode='human', obs_type='pixels_agent_pos', camera_config='front_wrist')
 
 # Reset environment with specific cube position
 obs, info = env.reset(options={'cube_grid_position': 4})
 
-# Run simulation
+# The environment automatically records MP4 videos when using example.py
+# Access joint positions and camera images
+print(f"Joint positions: {obs['agent_pos']}")  # 6 joint values including gripper
+print(f"Available cameras: {list(obs['pixels'].keys())}")  # front_camera, wrist_camera
+
+# Run simulation with 6DOF joint control
 for _ in range(200):
-    action = env.action_space.sample()  # Random action
+    action = env.action_space.sample()  # 6D action: [shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper]
     obs, reward, terminated, truncated, info = env.step(action)
     
     if terminated or truncated:
@@ -134,6 +141,35 @@ obs = {
 }
 ```
 
+### MP4 Video Recording
+
+The `example.py` script automatically records camera observations to MP4 videos:
+
+```python
+import gymnasium as gym
+import gym_soarm
+
+# Run the example script with video recording
+env = gym.make('SoArm-v0', render_mode='human', obs_type='pixels_agent_pos', camera_config='front_wrist')
+
+# Videos are automatically saved to videos/ directory with timestamps
+# - front_camera_20250729_143022.mp4
+# - wrist_camera_20250729_143022.mp4
+
+# Manual video recording can be implemented using:
+frames_storage = {}
+obs, info = env.reset()
+
+# Store frames from each camera
+if "pixels" in obs:
+    for camera_name, frame in obs['pixels'].items():
+        if camera_name not in frames_storage:
+            frames_storage[camera_name] = []
+        frames_storage[camera_name].append(frame.copy())
+
+# Use save_frames_to_mp4() function from example.py to save videos
+```
+
 ### Camera Switching
 
 During simulation with `render_mode='human'`, use these keyboard controls:
@@ -149,14 +185,18 @@ During simulation with `render_mode='human'`, use these keyboard controls:
 
 The environment provides rich observations including:
 
-- **Robot State**: Joint positions, velocities, and gripper state (42-dimensional)
-- **Camera Images**: RGB images from active camera (480×640×3)
+- **Robot Joint Positions**: 6DOF joint positions including gripper (6-dimensional)
+- **Camera Images**: RGB images from configured cameras (480×640×3 each)
 - **Object Information**: Positions and orientations of manipulated objects
 
 ```python
+# For obs_type='pixels_agent_pos'
 obs_space = gym.spaces.Dict({
-    'robot_state': gym.spaces.Box(-np.inf, np.inf, shape=(42,)),
-    'camera': gym.spaces.Box(0, 255, shape=(480, 640, 3), dtype=np.uint8)
+    'agent_pos': gym.spaces.Box(-np.inf, np.inf, shape=(6,), dtype=np.float64),  # Joint positions
+    'pixels': gym.spaces.Dict({
+        'front_camera': gym.spaces.Box(0, 255, shape=(480, 640, 3), dtype=np.uint8),
+        'wrist_camera': gym.spaces.Box(0, 255, shape=(480, 640, 3), dtype=np.uint8)
+    })
 })
 ```
 
@@ -174,6 +214,7 @@ obs_space = gym.spaces.Dict({
 - **Object Grid**: 3×3 positioning system with ±10cm(X), ±7.5cm(Y) spacing
 - **Cube Size**: 3cm × 3cm × 3cm blue cubes
 - **Robot Base**: Positioned at (0, 0.15, 0) with 90° rotation
+- **Robot Color**: White color scheme with black servo motors for visual clarity
 
 ### Camera Specifications
 
@@ -189,21 +230,22 @@ obs_space = gym.spaces.Dict({
 
 ```
 gym-soarm/
-├── gym_soarm_aloha/           # Main package
-│   ├── __init__.py           # Package initialization
-│   ├── env.py               # Main environment class
-│   ├── constants.py         # Environment constants
-│   ├── assets/             # Robot models and scenes
-│   │   ├── so101_new_calib.xml
-│   │   ├── so_arm_main_new.xml
-│   │   └── assets/         # STL mesh files
-│   └── tasks/              # Task implementations
+├── gym_soarm/              # Main package
+│   ├── __init__.py        # Package initialization
+│   ├── env.py            # Main environment class
+│   ├── constants.py      # Environment constants
+│   ├── assets/           # Robot models and scenes
+│   │   ├── so101_new_calib.xml    # SO-ARM101 robot model (white color)
+│   │   ├── so_arm_main_new.xml    # Scene with table and objects
+│   │   └── assets/               # STL mesh files
+│   └── tasks/            # Task implementations
 │       ├── __init__.py
-│       └── sim.py          # Manipulation task
-├── example.py              # Usage examples
-├── setup.py               # Package setup
-├── pyproject.toml         # Poetry configuration
-└── README.md              # This file
+│       └── sim.py        # Manipulation tasks
+├── example.py            # Usage examples with MP4 recording
+├── videos/               # Auto-generated MP4 video outputs
+├── setup.py             # Package setup
+├── pyproject.toml       # Poetry configuration
+└── README.md            # This file
 ```
 
 ### Running Tests
@@ -235,10 +277,10 @@ The project uses Ruff for linting and formatting:
 pip install -e ".[dev]"
 
 # Run linting
-ruff check gym_soarm_aloha/
+ruff check gym_soarm/
 
 # Auto-format code
-ruff format gym_soarm_aloha/
+ruff format gym_soarm/
 ```
 
 ## Hardware Requirements
