@@ -70,6 +70,36 @@ for _ in range(200):
 env.close()
 ```
 
+### Interactive Joint Control
+
+For real-time joint manipulation using sliders, use the interactive control sample:
+
+```bash
+# Run the slider control sample
+python examples/slider_control_final.py
+```
+
+**Features:**
+- **Real-time Control**: Use trackbars to control each of the 6 joints (shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper)
+- **Visual Feedback**: Live display of joint angles in radians
+- **Reset Functionality**: Reset button to return robot to initial position (all joints at 0.0 rad)
+- **Keyboard Controls**: 
+  - **SPACE**: Step simulation forward
+  - **ESC**: Exit application
+  - **R**: Quick reset shortcut
+
+**Usage Instructions:**
+1. Adjust joint angles using the trackbars at the top of the control window
+2. Press SPACE to step the simulation and see the robot move
+3. Use the "Reset" trackbar (set to 1) to reset the environment
+4. Press ESC to exit the application
+
+This sample is perfect for:
+- Understanding joint limits and robot kinematics
+- Manual robot positioning and pose testing
+- Interactive exploration of the workspace
+- Educational demonstrations of robotic arm control
+
 ### Grid Position Control
 
 You can specify the initial position of the blue cube using a 3×3 grid system:
@@ -243,7 +273,9 @@ gym-soarm/
 │   └── tasks/            # Task implementations
 │       ├── __init__.py
 │       └── sim.py        # Manipulation tasks
-├── example.py            # Usage examples with MP4 recording
+├── examples/             # Example scripts and demonstrations
+│   ├── example.py        # Basic usage with MP4 recording
+│   └── slider_control_final.py  # Interactive joint control with sliders
 ├── videos/               # Auto-generated MP4 video outputs
 ├── setup.py             # Package setup
 ├── pyproject.toml       # Poetry configuration
@@ -264,7 +296,10 @@ pytest tests/test_e2e.py -v              # End-to-end tests
 pytest tests/test_camera_config.py -v    # Camera configuration tests
 
 # Run basic functionality test
-python example.py
+python examples/example.py
+
+# Test interactive joint control
+python examples/slider_control_final.py
 
 # Test camera configuration features
 python test_camera_features.py
