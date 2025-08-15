@@ -20,6 +20,8 @@ A gymnasium environment for SO-ARM101 single-arm manipulation based on gym-aloha
 
 ## Installation
 
+gym-soarm works with Python 3.10
+
 ### From Source
 
 ```bash
@@ -100,9 +102,13 @@ This sample is perfect for:
 - Interactive exploration of the workspace
 - Educational demonstrations of robotic arm control
 
-### Grid Position Control
+### Block Position Control
 
-You can specify the initial position of the blue cube using a 3×3 grid system:
+You can control the initial position of the blue cube using three different methods:
+
+#### 1. Grid Position System (0-8)
+
+Use predefined 3×3 grid positions for consistent object placement:
 
 ```python
 import gymnasium as gym
@@ -124,7 +130,69 @@ obs, info = env.reset(options={'cube_grid_position': None})
 6: (+10cm, -7.5cm)  7: (+10cm,  0cm)   8: (+10cm, +7.5cm)
 ```
 
-The cube will be placed at the specified grid position with a random rotation (0°, 30°, 45°, or 60°).
+#### 2. Custom Coordinates
+
+For precise control, specify exact X,Y coordinates:
+
+```python
+import gymnasium as gym
+import gym_soarm
+
+env = gym.make('SoArm-v0', render_mode='human')
+
+# Place cube at custom coordinates
+options = {
+    'cube_grid_position': -1,  # Use -1 to enable custom coordinates
+    'cube_x': 0.15,           # X coordinate in meters
+    'cube_y': 0.35            # Y coordinate in meters
+}
+obs, info = env.reset(options=options)
+```
+
+**Custom Coordinate Examples:**
+```python
+# Near the front of the table
+obs, info = env.reset(options={'cube_grid_position': -1, 'cube_x': 0.0, 'cube_y': 0.3})
+
+# Left side of workspace
+obs, info = env.reset(options={'cube_grid_position': -1, 'cube_x': -0.1, 'cube_y': 0.4})
+
+# Right side with precise positioning
+obs, info = env.reset(options={'cube_grid_position': -1, 'cube_x': 0.12, 'cube_y': 0.38})
+```
+
+#### 3. Random Placement
+
+Let the environment choose a random position:
+
+```python
+# Completely random placement (default)
+obs, info = env.reset()
+
+# Explicitly request random placement
+obs, info = env.reset(options={'cube_grid_position': None})
+```
+
+**Important Notes:**
+- All positioning methods place the cube at Z=0.05m (table surface)
+- The cube receives a random rotation (0°, 30°, 45°, or 60°) regardless of positioning method
+- Custom coordinates must be within the robot's workspace bounds
+- When using custom coordinates, both `cube_x` and `cube_y` parameters are required
+
+**Error Handling:**
+```python
+# This will raise ValueError - missing cube_y
+try:
+    obs, info = env.reset(options={'cube_grid_position': -1, 'cube_x': 0.1})
+except ValueError as e:
+    print(e)  # "cube_x and cube_y must be provided when cube_grid_position is -1"
+
+# This will raise ValueError - invalid grid position
+try:
+    obs, info = env.reset(options={'cube_grid_position': 10})
+except ValueError as e:
+    print(e)  # "cube_grid_position must be between 0 and 8 (inclusive)..."
+```
 
 ### Camera Configuration
 

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gym-soarm"
-version = "0.1.0"
+version = "0.3.0"
 description = "A gymnasium environment for SO-ARM100 single-arm manipulation based on gym-aloha"
 authors = [
     "Masato Kawamura (masato-ka) <jp6uzv@gmail.com>",

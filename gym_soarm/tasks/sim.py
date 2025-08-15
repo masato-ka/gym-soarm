@@ -186,6 +186,7 @@ class SoArmTask(base.Task):
         obs["images"] = {}
         obs["images"]["front_camera"] = physics.render(height=480, width=640, camera_id="front_camera")
         obs["images"]["wrist_camera"] = physics.render(height=480, width=640, camera_id="wrist_camera")
+        obs["images"]["diagonal_camera"] = physics.render(height=480, width=640, camera_id="diagonal_camera")
         obs["images"]["overview_camera"] = physics.render(height=480, width=640, camera_id="overview_camera")
 
         return obs
@@ -203,11 +204,27 @@ class PickPlaceTask(SoArmTask):
         self.object_picked = False
         self.cube_grid_position = None  # Store specified grid position (0-8)
     
-    def set_cube_grid_position(self, position):
-        """Set blue cube grid position (0-8). None for random position."""
-        if position is not None and (position < 0 or position > 8):
-            raise ValueError("Grid position must be between 0 and 8 (inclusive), or None for random")
-        self.cube_grid_position = position
+    def set_cube_grid_position(self, position, cube_x=None, cube_y=None):
+        """Set blue cube grid position (0-8) or custom coordinates.
+        
+        Args:
+            position: Grid position (0-8), -1 for custom coordinates, or None for random
+            cube_x: Custom X coordinate (required when position=-1)
+            cube_y: Custom Y coordinate (required when position=-1)
+        """
+        if position is not None and position != -1 and (position < 0 or position > 8):
+            raise ValueError("Grid position must be between 0 and 8 (inclusive), -1 for custom coordinates, or None for random")
+        
+        if position == -1:
+            if cube_x is None or cube_y is None:
+                raise ValueError("cube_x and cube_y must be provided when position is -1")
+            self.cube_grid_position = position
+            self.custom_cube_x = cube_x
+            self.custom_cube_y = cube_y
+        else:
+            self.cube_grid_position = position
+            self.custom_cube_x = None
+            self.custom_cube_y = None
         
     def initialize_episode(self, physics):
         """Initialize pick and place episode with blue cube at specified or random grid position."""
@@ -233,14 +250,21 @@ class PickPlaceTask(SoArmTask):
                 for dy in [-0.075, 0.0, 0.075]:  # ±7.5cm in Y direction
                     grid_positions.append([table_center[0] + dx, table_center[1] + dy])
             
-            # Use specified position or select random position
-            if self.cube_grid_position is not None:
+            # Use specified position, custom coordinates, or select random position
+            if self.cube_grid_position == -1:
+                # Use custom coordinates
+                blue_cube_x = self.custom_cube_x
+                blue_cube_y = self.custom_cube_y
+                blue_cube_z = 0.05  # Place on table surface
+                selected_position = "custom"
+            elif self.cube_grid_position is not None:
                 selected_position = self.cube_grid_position
+                blue_cube_x, blue_cube_y = grid_positions[selected_position]
+                blue_cube_z = 0.05  # Place on table surface
             else:
                 selected_position = random_state.choice(len(grid_positions))
-            
-            blue_cube_x, blue_cube_y = grid_positions[selected_position]
-            blue_cube_z = 0.05  # Place on table surface
+                blue_cube_x, blue_cube_y = grid_positions[selected_position]
+                blue_cube_z = 0.05  # Place on table surface
             
             # Define 4 rotation angles: 0°, 30°, 45°, 60°
             rotation_angles = [0, 30, 45, 60]  # degrees
@@ -252,8 +276,15 @@ class PickPlaceTask(SoArmTask):
             sin_half = np.sin(angle_rad / 2)
             rotation_quat = [cos_half, 0, 0, sin_half]  # [w, x, y, z]
             
-            position_mode = "specified" if self.cube_grid_position is not None else "random"
-            print(f"Blue cube placed at {position_mode} position {selected_position}/8: ({blue_cube_x:.3f}, {blue_cube_y:.3f}, {blue_cube_z:.3f})")
+            if self.cube_grid_position == -1:
+                position_mode = "custom"
+                print(f"Blue cube placed at {position_mode} coordinates: ({blue_cube_x:.3f}, {blue_cube_y:.3f}, {blue_cube_z:.3f})")
+            elif self.cube_grid_position is not None:
+                position_mode = "specified"
+                print(f"Blue cube placed at {position_mode} position {selected_position}/8: ({blue_cube_x:.3f}, {blue_cube_y:.3f}, {blue_cube_z:.3f})")
+            else:
+                position_mode = "random"
+                print(f"Blue cube placed at {position_mode} position {selected_position}/8: ({blue_cube_x:.3f}, {blue_cube_y:.3f}, {blue_cube_z:.3f})")
             print(f"Blue cube rotation: {selected_angle}° around Z-axis")
             
             # Set blue cube position and orientation

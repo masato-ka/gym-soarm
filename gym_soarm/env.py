@@ -41,7 +41,7 @@ class SoArmAlohaEnv(gym.Env):
         self.camera_config = camera_config
         
         # Validate camera configuration
-        valid_configs = ["front_only", "front_wrist", "all"]
+        valid_configs = ["front_only", "front_wrist", "diagonal_wrist", "all"]
         if camera_config not in valid_configs:
             raise ValueError(f"camera_config must be one of {valid_configs}, got {camera_config}")
         
@@ -52,7 +52,7 @@ class SoArmAlohaEnv(gym.Env):
         self._viewer = None
         self._viewer_thread = None
         self._current_camera = "overview_camera"  # Default camera for viewer
-        self._available_cameras = ["overview_camera", "front_camera", "wrist_camera"]
+        self._available_cameras = ["overview_camera", "front_camera", "front_close", "wrist_camera"]
 
         # Define observation space based on observation type
         if self.obs_type == "state":
@@ -112,8 +112,10 @@ class SoArmAlohaEnv(gym.Env):
             return ["front_camera"]
         elif camera_config == "front_wrist":
             return ["front_camera", "wrist_camera"]
+        elif camera_config == "diagonal_wrist":
+            return ["diagonal_camera", "wrist_camera"]
         elif camera_config == "all":
-            return ["overview_camera", "front_camera", "wrist_camera"]
+            return ["overview_camera", "front_camera", "front_close", "wrist_camera"]
         else:
             raise ValueError(f"Unknown camera_config: {camera_config}")
 
@@ -196,6 +198,12 @@ class SoArmAlohaEnv(gym.Env):
             elif key == ord('3'):  # Switch to wrist camera
                 self._current_camera = "wrist_camera"
                 print(f"Switched to {self._current_camera}")
+            elif key == ord('4'):  # Switch to front close camera
+                self._current_camera = "front_close"
+                print(f"Switched to {self._current_camera}")
+            elif key == ord('5'):  # Switch to front close camera
+                self._current_camera = "diagonal_camera"
+                print(f"Switched to {self._current_camera}")
             
             return image
             
@@ -210,7 +218,7 @@ class SoArmAlohaEnv(gym.Env):
         # Time limit is controlled by StepCounter in env factory
         time_limit = float("inf")
 
-        xml_path = ASSETS_DIR / "so_arm_main_new.xml"
+        xml_path = ASSETS_DIR / "scene.xml"
         physics = mujoco.Physics.from_xml_path(str(xml_path))
 
         if task_name == "pick_place":
@@ -262,12 +270,18 @@ class SoArmAlohaEnv(gym.Env):
         if options is not None and 'cube_grid_position' in options:
             cube_grid_position = options['cube_grid_position']
             # Validate cube_grid_position
-            if cube_grid_position is not None and (cube_grid_position < 0 or cube_grid_position > 8):
-                raise ValueError("cube_grid_position must be between 0 and 8 (inclusive), or None for random")
+            if cube_grid_position is not None and cube_grid_position != -1 and (cube_grid_position < 0 or cube_grid_position > 8):
+                raise ValueError("cube_grid_position must be between 0 and 8 (inclusive), -1 for custom coordinates, or None for random")
             
             # Set cube grid position in task if it's a PickPlaceTask
             if hasattr(self._env.task, 'set_cube_grid_position'):
-                self._env.task.set_cube_grid_position(cube_grid_position)
+                if cube_grid_position == -1:
+                    # Handle custom x,y coordinates
+                    if 'cube_x' not in options or 'cube_y' not in options:
+                        raise ValueError("cube_x and cube_y must be provided when cube_grid_position is -1")
+                    self._env.task.set_cube_grid_position(cube_grid_position, options['cube_x'], options['cube_y'])
+                else:
+                    self._env.task.set_cube_grid_position(cube_grid_position)
 
         # Seed the environment task
         if seed is not None:
@@ -277,7 +291,14 @@ class SoArmAlohaEnv(gym.Env):
         raw_obs = self._env.reset()
         observation = self._format_raw_obs(raw_obs.observation)
 
+        # Get blue cube position from environment state if available
         info = {"is_success": False}
+        if hasattr(self._env.task, 'blue_cube_position'):
+            info["blue_cube_position"] = self._env.task.blue_cube_position.copy()
+        elif "env_state" in raw_obs.observation and len(raw_obs.observation["env_state"]) >= 6:
+            # Extract blue cube position from env_state (last 3 elements are blue cube xyz)
+            info["blue_cube_position"] = raw_obs.observation["env_state"][3:6].tolist()
+        
         return observation, info
 
     def step(self, action):

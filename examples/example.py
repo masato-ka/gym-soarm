@@ -2,6 +2,7 @@
 """
 Example script demonstrating SO-ARM100 single-arm manipulation environment
 """
+import time
 
 import numpy as np
 import gymnasium as gym
@@ -47,7 +48,7 @@ def main():
     
     # Create environment using gym.make with pixels_agent_pos for both visual and state info
     # camera_config options: 'front_only', 'front_wrist', 'all'
-    env = gym.make('SoArm-v0', render_mode='human', obs_type='pixels_agent_pos', camera_config='front_wrist')
+    env = gym.make('SoArm-v0', render_mode='human', obs_type='pixels_agent_pos', camera_config='diagonal_wrist')
     
     print(f"Action space: {env.action_space}")
     print(f"Observation space: {env.observation_space}")
@@ -119,17 +120,17 @@ def main():
     
     # Test different specific positions
     print(f"\n=== Testing Different Grid Positions ===")
-    for test_position in [0, 2, 6, 8]:  # Test corner positions
+    for test_position in [0, 1, 2, 3, 4, 5, 6, 7, 8]:  # Test corner positions
         print(f"\nTesting position {test_position}...")
         observation, info = env.reset(seed=42, options={'cube_grid_position': test_position})
-        
+        print(f"blue cube position:{info['blue_cube_position']}")
         # Store frames from different positions
         if "pixels" in observation:
             for camera_name, frame in observation['pixels'].items():
                 frames_storage[camera_name].append(frame.copy())
         
         env.render()
-        
+
         # Give some time to observe the position
         for _ in range(5):
             action = env.action_space.sample() * 0.1  # Small movements
@@ -141,7 +142,25 @@ def main():
                     frames_storage[camera_name].append(frame.copy())
             
             env.render()
-    
+        time.sleep(1)
+
+    print(f"\n=== Testing any place Grid Positions ===")
+    observation, info = env.reset(seed=42, options={'cube_grid_position':-1, 'cube_x': 0.05, 'cube_y': 0.4})
+    if "pixels" in observation:
+        for camera_name, frame in observation['pixels'].items():
+            frames_storage[camera_name].append(frame.copy())
+    env.render()
+
+    for _ in range(5):
+        action = env.action_space.sample() * 0.1
+        observation, reward, terminated, truncated, info = env.step(action)
+
+        if "pixels" in observation:
+            for camera_name, frame in observation['pixels'].items():
+                frames_storage[camera_name].append(frame.copy())
+        env.render()
+    time.sleep(1)
+
     env.close()
     
     # Save all recorded frames to MP4 videos
