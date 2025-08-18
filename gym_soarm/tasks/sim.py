@@ -1,5 +1,6 @@
 import collections
 import numpy as np
+import torch
 from dm_control.suite import base
 
 from gym_soarm.constants import (
@@ -11,7 +12,8 @@ from gym_soarm.constants import (
     sample_workspace_position,
     is_in_workspace,
 )
-
+from lerobot.policies.act.modeling_act import ACTPolicy
+from .reward_wrapper import ACTPolicyWithReward
 
 def forward_kinematics_so_arm_101(joint_angles):
     """
@@ -197,13 +199,20 @@ class SoArmTask(base.Task):
 
 
 class PickPlaceTask(SoArmTask):
-    def __init__(self, random=None):
+    def __init__(self, random=None, reward_mode='math'):
         super().__init__(random=random)
         self.max_reward = 1.0
+        self.reward_mode = reward_mode
         self.target_position = None
         self.object_picked = False
         self.cube_grid_position = None  # Store specified grid position (0-8)
-    
+        if reward_mode == 'model':
+            policy = ACTPolicy.from_pretrained('masato-ka/act-gym-soarm-pick-and-place-reward').to('mps')
+            self.policy = ACTPolicyWithReward(policy)
+        elif reward_mode== 'math':
+            self.policy =None
+        else:
+            raise ValueError(f'reward_mode must be math or model but recieve {reward_mode}')
     def set_cube_grid_position(self, position, cube_x=None, cube_y=None):
         """Set blue cube grid position (0-8) or custom coordinates.
         
@@ -290,27 +299,46 @@ class PickPlaceTask(SoArmTask):
             # Set blue cube position and orientation
             physics.named.data.qpos['blue_cube'][:3] = [blue_cube_x, blue_cube_y, blue_cube_z]
             physics.named.data.qpos['blue_cube'][3:7] = rotation_quat  # Apply rotation
-            
+
             # Store blue cube position for reward calculation
             self.blue_cube_position = [blue_cube_x, blue_cube_y, blue_cube_z]
+
+    def _get_reward(self, physics):
+        current_gym_obs = self.get_observation(physics)
+
+        observation = {}
+        observation['observation.state'] = (torch.tensor(np.rad2deg(current_gym_obs['qpos'])) \
+                                            .type(torch.float32).unsqueeze(0).to('mps'))
+        observation['observation.images.wrist.right'] = torch.tensor(current_gym_obs['images']['wrist_camera'].copy()) \
+                                                            .type(torch.float32) / 255
+        observation['observation.images.wrist.right'] = observation['observation.images.wrist.right'].permute(2,0,1).unsqueeze(0).to('mps')
+        observation['observation.images.diagonal'] = torch.tensor(current_gym_obs['images']['diagonal_camera'].copy()) \
+                                                            .type(torch.float32) / 255
+        observation['observation.images.diagonal'] = observation['observation.images.diagonal'].permute(2,0,1).unsqueeze(0).to('mps')
+        _, reward = self.policy.select_action(observation)
+        return reward
 
     def get_reward(self, physics):
         """Calculate reward based on Euclidean distance between end-effector and blue cube."""
         # Method 1: Calculate end-effector position using forward kinematics
+        ## Reward Models
+        if self.reward_mode == 'model':
+            return self._get_reward(physics)
+
         joint_angles = physics.data.qpos[:6]  # First 6 joints including gripper
         ee_pos = forward_kinematics_so_arm_101(joint_angles)
-        
+
         # Get blue cube position
         # Blue cube is at qpos[6:13] (first 6 are robot joints, next 7 are blue cube free joint)
         if physics.data.qpos.shape[0] < 13:
             print("Warning: blue_cube qpos not available")
             return 0.0
-            
+
         cube_pos = physics.data.qpos[6:9]  # qpos[6:9] are blue cube position (x,y,z)
-        
+
         # Calculate Euclidean distance
         distance = np.linalg.norm(ee_pos - cube_pos)
-        
+
         # Optional debug information (commented out for production)
         # import time
         # if not hasattr(self, '_last_debug_time'):
@@ -320,16 +348,16 @@ class PickPlaceTask(SoArmTask):
         #     print(f"Debug FK - Joint angles: {joint_angles}")
         #     print(f"Debug FK - EE pos: {ee_pos}, Cube pos: {cube_pos}, Distance: {distance:.4f}")
         #     self._last_debug_time = current_time
-        
+
         # Distance-based reward with cutoff
         max_distance = 1.0  # Maximum distance for non-zero reward
         if distance > max_distance:
             return 0.0
-        
+
         # Linear reward: closer distance gives higher reward
         # At distance=0: reward=1.0, at distance=max_distance: reward=0.0
         reward = 1.0 - (distance / max_distance)
-        
+
         return max(0.0, reward)
     
     def is_cube_grasped_and_lifted(self, physics):
@@ -369,6 +397,26 @@ class PickPlaceTask(SoArmTask):
         # 2. Cube is not on table (lifted)
         # 3. Gripper is closed
         return gripper_touching_cube and not cube_on_table and gripper_is_closed
+    
+    def is_cube_on_goal_plate(self, physics):
+        """Check if the blue cube is placed on the white goal plate (within 10mm distance)."""
+        # Get blue cube position
+        if physics.data.qpos.shape[0] < 13:
+            return False
+        blue_cube_pos = physics.data.qpos[6:9]  # Blue cube position (x,y,z)
+        
+        # Get goal plate position
+        # Goal is a free joint, so it should be after blue_cube in qpos
+        # Blue cube: qpos[6:13] (7 DOF), Goal: qpos[13:20] (7 DOF)
+        if physics.data.qpos.shape[0] < 20:
+            return False
+        goal_pos = physics.data.qpos[13:16]  # Goal position (x,y,z)
+        
+        # Calculate Euclidean distance between cube and goal plate
+        distance = np.linalg.norm(blue_cube_pos - goal_pos)
+        
+        # Task completed if distance is less than 10mm (0.01m)
+        return distance < 0.01
 
 
 class StackingTask(SoArmTask):

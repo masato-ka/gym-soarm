@@ -24,16 +24,19 @@ class SoArmAlohaEnv(gym.Env):
         task="pick_place",
         obs_type="pixels",
         render_mode="rgb_array",
+        reward_mode="math",
         observation_width=640,
         observation_height=480,
         visualization_width=640,
         visualization_height=480,
         camera_config="front_wrist",  # "front_only", "front_wrist", "all"
+        render_camera="overview_camera"
     ):
         super().__init__()
         self.task = task
         self.obs_type = obs_type
-        self.render_mode = render_mode
+        self.render_mode = render_mode # TODO remove render_mode augumentation from __init__. Due to more align with original gym envs.
+        self.reward_mode = reward_mode
         self.observation_width = observation_width
         self.observation_height = observation_height
         self.visualization_width = visualization_width
@@ -52,7 +55,7 @@ class SoArmAlohaEnv(gym.Env):
         self._viewer = None
         self._viewer_thread = None
         self._current_camera = "overview_camera"  # Default camera for viewer
-        self._available_cameras = ["overview_camera", "front_camera", "front_close", "wrist_camera"]
+        self._available_cameras = ["overview_camera", "front_camera", "front_close", "wrist_camera", "diagonal_camera"]
 
         # Define observation space based on observation type
         if self.obs_type == "state":
@@ -120,6 +123,8 @@ class SoArmAlohaEnv(gym.Env):
             raise ValueError(f"Unknown camera_config: {camera_config}")
 
     def render(self):
+        # TODO adding render mode argument to align to original gym envs.
+        # It is depends on implementation. Original env environment same.
         if self.render_mode == "rgb_array":
             return self._render_rgb_array(visualize=True)
         elif self.render_mode == "human":
@@ -140,6 +145,8 @@ class SoArmAlohaEnv(gym.Env):
     
     def _render_human(self):
         """Render in human mode using OpenCV GUI window"""
+        # TODO Investigae to how to show the graphical window on other gym envs.
+        # => Using Pygames
         try:
             import cv2
             import numpy as np
@@ -222,7 +229,7 @@ class SoArmAlohaEnv(gym.Env):
         physics = mujoco.Physics.from_xml_path(str(xml_path))
 
         if task_name == "pick_place":
-            task = PickPlaceTask()
+            task = PickPlaceTask(reward_mode = self.reward_mode)
         elif task_name == "stacking":
             task = StackingTask()
         else:
@@ -309,10 +316,10 @@ class SoArmAlohaEnv(gym.Env):
         
         _, reward, _, raw_obs = self._env.step(clipped_action)
 
-        # Check if cube is grasped and lifted for termination condition
+        # Check if cube is placed on goal plate for termination condition
         terminated = False
-        if hasattr(self._env.task, 'is_cube_grasped_and_lifted'):
-            terminated = self._env.task.is_cube_grasped_and_lifted(self._env.physics)
+        if hasattr(self._env.task, 'is_cube_on_goal_plate'):
+            terminated = self._env.task.is_cube_on_goal_plate(self._env.physics)
         
         is_success = terminated
 

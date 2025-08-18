@@ -29,7 +29,7 @@
             <geom condim="4" solimp="2 1 0.01" solref="0.01 1" friction="1 0.005 0.0001"
                   pos="0 0 0" size="0.015 0.015 0.015" type="box" name="blue_cube" rgba="0.2 0.2 0.8 1" />
         </body>
-
+        <!-- white plate on the table as goal. -->
         <body name="goal" pos="-0.2 0.4 0.05">
             <joint name="goal" type="free" frictionloss="0.01" />
             <inertial pos="0 0 0" mass="0.05" diaginertia="0.002 0.002 0.002" />
